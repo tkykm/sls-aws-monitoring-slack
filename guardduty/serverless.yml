@@ -1,0 +1,52 @@
+service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-guardduty
+provider:
+  name: aws
+  memorySize: 128
+  runtime: python3.6
+  stackTags: ${file(../config/config.yml):STACK_TAGS}
+  deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
+  stage: dev
+  region: us-east-1
+package:
+  exclude:
+    - src/**
+    - tmp/**
+    - .git/**
+functions:
+  guarddutyslack:
+    handler: guardduty.lambda_handler
+    role: MyFunctionIamRole
+    events:
+      - cloudwatchEvent:
+          event:
+            source:
+              - "aws.guardduty"
+            detail-type:
+              - "GuardDuty Finding"
+    environment:
+      WEBHOOK_URLS: ${file(../config/config.yml):WEBHOOK_URLS_GUARDDUTY, "${file(../config/config.yml):WEBHOOK_URLS}"}
+resources:
+  Resources:
+    MyFunctionIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess
+plugins:
+ - serverless-plugin-additional-stacks
+custom:
+  additionalStacks:
+    permanent:
+      Resources:
+        GuardDutyDetector:
+          Type: "AWS::GuardDuty::Detector"
+          Properties:
+            Enable: true

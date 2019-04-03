@@ -1,0 +1,101 @@
+service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-inspector
+provider:
+  name: aws
+  runtime: python3.6
+  memorySize: 128
+  stackTags: ${file(../config/config.yml):STACK_TAGS}
+  deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
+  stage: dev
+  region: us-east-1
+functions:
+  slack_notificater:
+    handler: inspector.lambda_handler
+    role: MyFunctionIamRole
+    environment:
+      WEBHOOK_URLS: ${file(../config/config.yml):WEBHOOK_URLS_INSPECTOR, "${file(../config/config.yml):WEBHOOK_URLS}"}
+    events:
+      - sns: InspectorAlert
+  settopic:
+    handler: setsnstopic.lambda_handler
+    role: MyFunctionIamRole
+custom:
+  rulearn:
+    us-east-1: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-PmNV0Tcd"
+    us-east-2: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-cE4kTR30"
+    us-west-1: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TxmXimXF"
+    us-west-2: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-rD1z6dpl"
+    ap-south-1: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-YxKfjFu1"
+    ap-southeast-2: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-FLcuV4Gz"
+    ap-northeast-2: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-s3OmLzhL"
+    ap-northeast-1: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-YI95DVd7"
+    eu-west-1: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SPzU33xe"
+    eu-central-1: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-6yunpJ91"
+resources:
+  Resources:
+    MyFunctionIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess
+          - arn:aws:iam::aws:policy/AmazonInspectorFullAccess
+    SNSInspector:
+      Type: "AWS::SNS::TopicPolicy"
+      Properties:
+        Topics:
+          - !Ref SNSTopicInspectorAlert
+        PolicyDocument: 
+          Version: '2008-10-17'
+          Id: __default_policy_ID
+          Statement:
+          - Sid: __default_statement_ID
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+            - SNS:GetTopicAttributes
+            - SNS:SetTopicAttributes
+            - SNS:AddPermission
+            - SNS:RemovePermission
+            - SNS:DeleteTopic
+            - SNS:Subscribe
+            - SNS:ListSubscriptionsByTopic
+            - SNS:Publish
+            - SNS:Receive
+            Resource: !Ref SNSTopicInspectorAlert
+            Condition:
+              StringEquals:
+                AWS:SourceOwner: !Ref "AWS::AccountId"
+          - Sid: AllowPublishFromInspector
+            Effect: Allow
+            Principal:
+              Service: inspector.amazonaws.com
+            Action: SNS:Publish
+            Resource: !Ref SNSTopicInspectorAlert
+    AssessmentTarget: 
+      Type: AWS::Inspector::AssessmentTarget
+      Properties: 
+        AssessmentTargetName : "Allinstances"
+    AssessmentTemplate: 
+      Type: AWS::Inspector::AssessmentTemplate
+      Properties: 
+        AssessmentTargetArn: !Ref AssessmentTarget
+        DurationInSeconds: 3600
+        RulesPackageArns: 
+          - ${self:custom.rulearn.${opt:region, self:provider.region}}
+    CustomInspectorSubscribe:
+      Type: Custom::InspectorSubscribeToEventLambda
+      Version: 1.0
+      Properties:
+        ServiceToken: !GetAtt SettopicLambdaFunction.Arn
+        event: "FINDING_REPORTED"
+        resourceArn: !Ref AssessmentTemplate
+        topicArn: !Ref SNSTopicInspectorAlert
+

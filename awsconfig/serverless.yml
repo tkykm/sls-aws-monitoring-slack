@@ -1,0 +1,122 @@
+service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-config
+provider:
+  name: aws
+  runtime: python3.6
+  memorySize: 128
+  stackTags: ${file(../config/config.yml):STACK_TAGS}
+  deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
+  stage: dev
+  region: us-east-1
+functions:
+  slack:
+    handler: reflectorinvokingevent.lambda_handler
+    role: MyFunctionIamRole
+    environment:
+      WEBHOOK_URLS: ${file(../config/config.yml):WEBHOOK_URLS_CONFIG, "${file(../config/config.yml):WEBHOOK_URLS}"}
+custom:
+  globalresourcesupport:
+    us-east-1: true
+resources:
+  Resources:
+    MyFunctionIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess
+    LambdaInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt SlackLambdaFunction.Arn 
+        Action: 'lambda:InvokeFunction'
+        Principal: config.amazonaws.com
+        SourceAccount: !Ref 'AWS::AccountId'
+      DependsOn:
+        - SlackLambdaFunction
+    ConfigRuleForAllEvents: 
+      Type: AWS::Config::ConfigRule
+      Properties: 
+        Source: 
+          Owner: CUSTOM_LAMBDA
+          SourceIdentifier: !GetAtt SlackLambdaFunction.Arn
+          SourceDetails: 
+            - EventSource: "aws.config"
+              MessageType: "ConfigurationItemChangeNotification"
+            - EventSource: "aws.config"
+              MessageType: "OversizedConfigurationItemChangeNotification"
+      DependsOn:
+        - DeliveryChannel
+        - SlackLambdaFunction
+    ConfigS3Bucket:
+      Type: "AWS::S3::Bucket"
+      Properties:
+        BucketName: !Join 
+          - ''
+          - - ${self:service}
+            - "-awsconfig-"
+            - !Ref "AWS::AccountId"
+            - -${opt:region, self:provider.region}
+    ConfigSNS:
+      Type: AWS::SNS::Topic
+      Properties: 
+        TopicName: awsconfig
+    ConfigIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - config.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSConfigRole
+        Policies: 
+          - PolicyName: "puts3andsns"
+            PolicyDocument: 
+              Version: "2012-10-17"
+              Statement: 
+                - Effect: Allow
+                  Action:
+                    - "s3:PutObject*"
+                  Resource:
+                    Fn::Join:
+                      - ""
+                      - - !GetAtt ConfigS3Bucket.Arn
+                        - "/AWSLogs/"
+                        - !Ref AWS::AccountId
+                        - "/*"
+                  Condition:
+                    StringLike:
+                      s3:x-amz-acl: bucket-owner-full-control
+                - Effect: Allow
+                  Action: sns:Publish
+                  Resource: !Ref ConfigSNS
+    ConfigRecorder:
+      Type: AWS::Config::ConfigurationRecorder
+      Properties: 
+        Name: default
+        RecordingGroup:
+          AllSupported: true
+          IncludeGlobalResourceTypes: ${self:custom.globalresourcesupport.${opt:region, self:provider.region}, false}
+        RoleARN: !GetAtt ConfigIamRole.Arn
+      DependsOn:
+        - ConfigIamRole 
+    DeliveryChannel:
+      Type: AWS::Config::DeliveryChannel
+      Properties:
+        S3BucketName: !Ref ConfigS3Bucket
+        SnsTopicARN: !Ref ConfigSNS
+      DependsOn:
+        - ConfigS3Bucket
+        - ConfigSNS
+        - ConfigIamRole

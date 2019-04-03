@@ -1,0 +1,6 @@
+node_modules
+jspm_packages
+config/config.yml
+__pycache__
+.serverless
+*.swp

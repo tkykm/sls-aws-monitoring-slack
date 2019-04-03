@@ -1,0 +1,91 @@
+service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-budget
+provider:
+  name: aws
+  runtime: python3.6
+  memorySize: 128
+  stackTags: ${file(../config/config.yml):STACK_TAGS}
+  deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
+  stage: dev
+  region: us-east-1
+functions:
+  slack_notificater_budget:
+    handler: budget.lambda_handler
+    role: MyFunctionIamRole
+    environment:
+      WEBHOOK_URLS: ${file(../config/config.yml):WEBHOOK_URLS_BUDGET, "${file(../config/config.yml):WEBHOOK_URLS}"}
+    events:
+      - sns: BudgetAlert
+resources:
+  Resources:
+    MyFunctionIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess
+    MyBudget:
+      Type: "AWS::Budgets::Budget"
+      Properties:
+        Budget:
+          BudgetLimit:
+            Amount: ${file(../config/config.yml):BUDGET_LIMIT}
+            Unit: USD
+          TimeUnit: MONTHLY
+          TimePeriod:
+            Start: 1225864800
+            End: 1926864800
+          BudgetType: COST
+          CostFilters:
+            TagKeyValue: ${file(../config/config.yml):BUDGET_TAGKEYVALUE}
+        NotificationsWithSubscribers:
+          - Notification:
+              NotificationType: FORECASTED
+              ComparisonOperator: GREATER_THAN
+              Threshold: ${file(../config/config.yml):BUDGET_THRESHOLD_PERCENTAGE}
+              ThresholdType: PERCENTAGE
+            Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref SNSTopicBudgetAlert
+    SNSBudget:
+      Type: "AWS::SNS::TopicPolicy"
+      Properties:
+        Topics:
+          - !Ref SNSTopicBudgetAlert
+        PolicyDocument: 
+          Version: '2008-10-17'
+          Id: __default_policy_ID
+          Statement:
+          - Sid: __default_statement_ID
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+            - SNS:GetTopicAttributes
+            - SNS:SetTopicAttributes
+            - SNS:AddPermission
+            - SNS:RemovePermission
+            - SNS:DeleteTopic
+            - SNS:Subscribe
+            - SNS:ListSubscriptionsByTopic
+            - SNS:Publish
+            - SNS:Receive
+            Resource: !Ref SNSTopicBudgetAlert
+            Condition:
+              StringEquals:
+                AWS:SourceOwner: !Ref "AWS::AccountId"
+          - Sid: AllowFromBudgets
+            Effect: Allow
+            Principal:
+              Service: budgets.amazonaws.com
+            Action: SNS:Publish
+            Resource: !Ref SNSTopicBudgetAlert
+  Outputs:
+    BudgetId:
+      Value: !Ref MyBudget

@@ -1,0 +1,41 @@
+service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-trustedadvisor
+provider:
+  name: aws
+  memorySize: 128
+  runtime: python3.6
+  stackTags: ${file(../config/config.yml):STACK_TAGS}
+  deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
+  stage: dev
+  region: us-east-1
+functions:
+  slack_notificater_trustedadvisor:
+    handler: trustedadvisor.lambda_handler
+    role: LambdaIamRole
+    environment:
+      WEBHOOK_URLS: ${file(../config/config.yml):WEBHOOK_URLS_TRUSTEDADVISOR, "${file(../config/config.yml):WEBHOOK_URLS}"}
+    events:
+      - cloudwatchEvent:
+          event:
+            source:
+              - "aws.trustedadvisor"
+            detail-type:
+              - "Trusted Advisor Check Item Refresh Notification"
+            detail:
+              status:
+                - ERROR
+resources:
+  Resources:
+    LambdaIamRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns: 
+          - arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess
+

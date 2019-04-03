@@ -1,0 +1,17 @@
+PREFIX_SERVICE_NAME: thisisusedcloudformationstackname
+PREFIX_S3: thisisusedartifacts3
+STACK_TAGS:
+  key1: thisis 
+  key2: required
+WEBHOOK_URLS: https://hooks.slack.com/services/hogehoge,https://hooks.slack.com/services/fugauga
+WEBHOOK_URLS_INSPECTOR: https://hooks.slack.com/services/ddddd
+WEBHOOK_URLS_CONFIG: https://hooks.slack.com/services/dddddddd,https://hooks.slack.com/services/hogeh
+WEBHOOK_URLS_TRUSTEDADVISOR: https://hooks.slack.com/services/dddddddd
+WEBHOOK_URLS_BUDGET: https://hooks.slack.com/services/dddddddd
+WEBHOOK_URLS_GUARDDUTY: https://hooks.slack.com/services/hogehoge
+BUDGET_LIMIT: 1000
+BUDGET_TAGKEYVALUE: 
+  - "user:hogehoge$"
+BUDGET_THRESHOLD_PERCENTAGE: 70
+
+
