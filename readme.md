@@ -95,10 +95,10 @@ $ aws ec2 describe-regions  | jq '.Regions[].RegionName' | xargs -n 1 -J % sls d
 regionサービスなので監視したいリージョンにデプロイする.
 デプロイされたリージョンのすべてのインスタンスを対象にNetwork Reachability-1.1の評価が実施される（1週間に1回）
 
-以下全リージョンにデプロイする例
+以下Inspectorが対応している全リージョンにデプロイする例
 ```
 $ cd inspector
-$ aws ec2 describe-regions  | jq '.Regions[].RegionName' | xargs -n 1 -J % sls deploy  --region %
+$ for region in us-east-1 us-east-2 us-west-1 us-west-2 ap-south-1 ap-southeast-2 ap-northeast-2 ap-northeast-1 eu-west-1 eu-central-1; do sls deploy --aws-profile ss --region $region; done
 ```
 
 ![](https://s3-ap-northeast-1.amazonaws.com/hackmd-jp1/uploads/upload_df0d39ed79239df0ae5ba10fa73ab6dd.png)
