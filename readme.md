@@ -206,7 +206,7 @@ AWS GovCloud (US-West)
 今回は以下ARNをserverless.ymlにハードコードしている.
 
 |region| Network Reachability rule package arn
-|:-----------|:------------|:--|
+|:-----------|:------------|
 |us-east-1| arn:aws:inspector:us-east-1:316112463485:rulespackage/0-PmNV0Tcd
 |us-east-2| arn:aws:inspector:us-east-2:646659390643:rulespackage/0-cE4kTR30
 |us-west-1|arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TxmXimXF
