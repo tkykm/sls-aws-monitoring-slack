@@ -29,7 +29,7 @@ def format_message(data):
                         'title': 'Severity',
                         'value': data.get('severity'),
                         'short': True
-                    }, 
+                    },
                     {
                         'title': 'Timestamp',
                         'value': data.get('createdAt').strftime("%m/%d/%Y, %H:%M:%S%Z"),
@@ -97,7 +97,7 @@ def get_finding_arn(event):
 def lambda_handler(event, context):
     webhook_urls = os.environ['WEBHOOK_URLS']
     finding = get_finding_detail( get_finding_arn(event) )
-    if not finding.get('severity') in ['HIGH', 'Medium']:
+    if not finding.get('severity') in ['High', 'Medium']:
       return 'ignore finding of less than Medium'
     payload = format_message(finding)
     responses = []
