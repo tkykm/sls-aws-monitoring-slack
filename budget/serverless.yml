@@ -1,7 +1,7 @@
 service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-budget
 provider:
   name: aws
-  runtime: python3.6
+  runtime: python3.11
   memorySize: 128
   stackTags: ${file(../config/config.yml):STACK_TAGS}
   deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}

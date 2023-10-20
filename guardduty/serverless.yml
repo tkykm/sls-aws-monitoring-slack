@@ -2,7 +2,7 @@ service: ${file(../config/config.yml):PREFIX_SERVICE_NAME}-guardduty
 provider:
   name: aws
   memorySize: 128
-  runtime: python3.6
+  runtime: python3.11
   stackTags: ${file(../config/config.yml):STACK_TAGS}
   deploymentPrefix: ${file(../config/config.yml):PREFIX_S3}
   stage: dev
